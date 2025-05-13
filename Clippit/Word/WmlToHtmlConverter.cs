@@ -43,6 +43,7 @@ namespace Clippit.Word
         public string AdditionalCss;
         public bool RestrictToSupportedLanguages;
         public bool RestrictToSupportedNumberingFormats;
+        public bool PreserveSectionInfo;
         public Dictionary<string, Func<string, int, string, string>> ListItemImplementations;
         public Func<ImageInfo, XElement> ImageHandler;
 
@@ -55,6 +56,7 @@ namespace Clippit.Word
             AdditionalCss = "";
             RestrictToSupportedLanguages = false;
             RestrictToSupportedNumberingFormats = false;
+            PreserveSectionInfo = false;
             ListItemImplementations = ListItemRetrieverSettings.DefaultListItemTextImplementations;
         }
 
@@ -738,6 +740,26 @@ namespace Clippit.Word
                 currentMarginLeft,
                 isBidi
             );
+
+            // Serialize sectPr section structure in none displayed span to be
+            // able restore page orientation after backward conversion (HTML->DOCX)
+            if (settings.PreserveSectionInfo)
+            {
+                var pPr = element.Element(W.pPr);
+                var sectPr = pPr?.Element(W.sectPr);
+                if (sectPr != null)
+                {
+                    string sectPrString = sectPr.ToString(SaveOptions.DisableFormatting);
+                    string base64SectPr = Convert.ToBase64String(Encoding.UTF8.GetBytes(sectPrString));
+
+                    paragraph.AddFirst(
+                        new XElement("span",
+                            new XAttribute("style", "display:none"),
+                            new XAttribute("data-docx-section", base64SectPr)
+                        )
+                    );
+                }
+            }
 
             // The paragraph conversion might have created empty spans.
             // These can and should be removed because empty spans are
@@ -2528,23 +2550,20 @@ namespace Clippit.Word
             if (body == null)
                 return;
 
-            // move last sectPr into last paragraph
+            // create empty paragraph for last sectPr
             var lastSectPr = body.Elements(W.sectPr).LastOrDefault();
             if (lastSectPr != null)
             {
-                // if the last thing in the document is a table, Word will always insert a paragraph following that.
-                var lastPara = body.DescendantsTrimmed(W.txbxContent).LastOrDefault(p => p.Name == W.p);
+                // Create a new paragraph with pPr containing the sectPr
+                var newPara = new XElement(W.p,
+                    new XElement(W.pPr,
+                        lastSectPr
+                    )
+                );
 
-                if (lastPara != null)
-                {
-                    var lastParaProps = lastPara.Element(W.pPr);
-                    if (lastParaProps != null)
-                        lastParaProps.Add(lastSectPr);
-                    else
-                        lastPara.Add(new XElement(W.pPr, lastSectPr));
-
-                    lastSectPr.Remove();
-                }
+                // Remove the sectPr from body and add the new paragraph at the end
+                lastSectPr.Remove();
+                body.Add(newPara);
             }
 
             var reverseDescendants = xd.Descendants().Reverse().ToList();
