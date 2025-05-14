@@ -741,26 +741,6 @@ namespace Clippit.Word
                 isBidi
             );
 
-            // Serialize sectPr section structure in none displayed span to be
-            // able restore page orientation after backward conversion (HTML->DOCX)
-            if (settings.PreserveSectionInfo)
-            {
-                var pPr = element.Element(W.pPr);
-                var sectPr = pPr?.Element(W.sectPr);
-                if (sectPr != null)
-                {
-                    string sectPrString = sectPr.ToString(SaveOptions.DisableFormatting);
-                    string base64SectPr = Convert.ToBase64String(Encoding.UTF8.GetBytes(sectPrString));
-
-                    paragraph.AddFirst(
-                        new XElement("span",
-                            new XAttribute("style", "display:none"),
-                            new XAttribute("data-docx-section", base64SectPr)
-                        )
-                    );
-                }
-            }
-
             // The paragraph conversion might have created empty spans.
             // These can and should be removed because empty spans are
             // invalid in HTML5.
@@ -1078,7 +1058,25 @@ namespace Clippit.Word
                 }
                 if (sectPr == null || bidi == null)
                 {
-                    var div = new XElement(Xhtml.div, CreateBorderDivs(wordDoc, settings, g));
+                    XElement div;
+
+                    if (settings.PreserveSectionInfo)
+                    {
+                        var sectionOrientationMarker = GetSectionMarker(sectPr); // <<<portrait>>> or <<<landscape>>>
+                        div = new XElement(
+                            Xhtml.div,
+                            sectionOrientationMarker,      // Insert section marker first
+                            CreateBorderDivs(wordDoc, settings, g) // Then normal content
+                        );
+                    }
+                    else
+                    {
+                        div = new XElement(
+                            Xhtml.div,
+                            CreateBorderDivs(wordDoc, settings, g) // Then normal content
+                        );
+                    }
+                    
                     return div;
                 }
                 else
@@ -1092,6 +1090,21 @@ namespace Clippit.Word
                 }
             });
             return divList;
+        }
+
+        private static XElement GetSectionMarker(SectionAnnotation sectPr)
+        {
+            if (sectPr == null)
+                return null;
+
+            var pgSz = sectPr.SectionElement.Element(W.pgSz);
+            bool isLandscape = pgSz?.Attribute(W.orient)?.Value == "landscape";
+
+            string text = isLandscape ? "<<<landscape>>>" : "<<<portrait>>>";
+
+            return new XElement(Xhtml.p,
+                new XElement(Xhtml.span, text)
+            );
         }
 
         private enum BorderType
