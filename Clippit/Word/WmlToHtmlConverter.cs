@@ -43,7 +43,10 @@ namespace Clippit.Word
         public string AdditionalCss;
         public bool RestrictToSupportedLanguages;
         public bool RestrictToSupportedNumberingFormats;
+
         public bool PreserveSectionInfo;
+        public bool ExcludeTablesOfContent;
+
         public Dictionary<string, Func<string, int, string, string>> ListItemImplementations;
         public Func<ImageInfo, XElement> ImageHandler;
 
@@ -56,7 +59,10 @@ namespace Clippit.Word
             AdditionalCss = "";
             RestrictToSupportedLanguages = false;
             RestrictToSupportedNumberingFormats = false;
+
             PreserveSectionInfo = false;
+            ExcludeTablesOfContent = false;
+
             ListItemImplementations = ListItemRetrieverSettings.DefaultListItemTextImplementations;
         }
 
@@ -729,6 +735,17 @@ namespace Clippit.Word
             if (HasStyleSeparator(previousParagraph))
                 return null;
 
+            // Optionally exclude Table of Contents, Table of Figures, Table of Tables
+            if (settings.ExcludeTablesOfContent)
+            {
+                var pPr = element.Element(W.pPr);
+                var pStyle = pPr?.Element(W.pStyle)?.Attribute(W.val)?.Value.ToLower();
+
+                // Style-based fast check
+                if (pStyle != null && (pStyle.StartsWith("toc") || pStyle.StartsWith("tableof")))
+                    return null;
+            }
+            
             var elementName = GetParagraphElementName(element, wordDoc);
             var isBidi = IsBidi(element);
             var paragraph = (XElement)ConvertParagraph(
