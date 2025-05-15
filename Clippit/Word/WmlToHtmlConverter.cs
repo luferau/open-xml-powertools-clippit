@@ -4,6 +4,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using DocumentFormat.OpenXml.Packaging;
 using Image = SixLabors.ImageSharp.Image;
@@ -716,6 +717,8 @@ namespace Clippit.Word
             return CreateBorderDivs(wordDoc, settings, element.Elements(W.sdtContent).Elements());
         }
 
+        private static readonly Regex TocStyleRegex = new Regex(@"^toc\d+$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
         // Transform the w:p element, including the following sibling w:p element(s)
         // in case the w:p element has a style separator. The sibling(s) will be
         // transformed to h:span elements rather than h:p elements and added to
@@ -739,10 +742,10 @@ namespace Clippit.Word
             if (settings.ExcludeTablesOfContent)
             {
                 var pPr = element.Element(W.pPr);
-                var pStyle = pPr?.Element(W.pStyle)?.Attribute(W.val)?.Value.ToLower();
+                var pStyle = pPr?.Element(W.pStyle)?.Attribute(W.val)?.Value;
 
                 // Style-based fast check
-                if (pStyle != null && (pStyle.StartsWith("toc") || pStyle.StartsWith("tableof")))
+                if (pStyle != null && (TocStyleRegex.IsMatch(pStyle) || pStyle.StartsWith("tableof", StringComparison.OrdinalIgnoreCase)))
                     return null;
             }
             
