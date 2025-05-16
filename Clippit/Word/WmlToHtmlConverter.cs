@@ -1120,7 +1120,7 @@ namespace Clippit.Word
             var pgSz = sectPr.SectionElement.Element(W.pgSz);
             bool isLandscape = pgSz?.Attribute(W.orient)?.Value == "landscape";
 
-            string text = isLandscape ? "Page Break - Landscape" : "Page Break - Portrait";
+            string text = isLandscape ? "<----- Page Break - Landscape ----->" : "<----- Page Break - Portrait ----->";
 
             return new XElement(Xhtml.p,
                 new XElement(Xhtml.span, text)
