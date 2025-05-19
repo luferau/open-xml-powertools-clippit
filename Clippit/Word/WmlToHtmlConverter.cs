@@ -1297,10 +1297,22 @@ namespace Clippit.Word
                     var spanStyle = element.Annotation<Dictionary<string, string>>();
                     spanStyle.AddIfMissing("display", "inline-block");
                     spanStyle.AddIfMissing("text-indent", "0");
-                    spanStyle.AddIfMissing(
-                        "width",
-                        string.Format(NumberFormatInfo.InvariantInfo, "{0:0.000}in", totalWidth)
-                    );
+
+                    var parentParagraph = elementsPrecedingTab.FirstOrDefault()?.Ancestors(W.p).FirstOrDefault();
+
+                    var styleVal = parentParagraph?
+                        .Element(W.pPr)?
+                        .Element(W.pStyle)?
+                        .Attribute(W.val)?
+                        .Value;
+
+                    var inCaption = styleVal != null &&
+                                    (styleVal.Equals("Caption", StringComparison.OrdinalIgnoreCase) ||
+                                     styleVal.StartsWith("Heading", StringComparison.OrdinalIgnoreCase));
+                    if (!inCaption)
+                    {
+                        spanStyle.AddIfMissing("width", string.Format(NumberFormatInfo.InvariantInfo, "{0:0.000}in", totalWidth));
+                    }
                 }
             }
             return txElementsPrecedingTab;
