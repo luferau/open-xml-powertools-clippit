@@ -2696,7 +2696,7 @@ namespace Clippit.Html
                 WP.docPr,
                 new XAttribute(NoNamespace.id, pictureId),
                 new XAttribute(NoNamespace.name, pictureDescription),
-                new XAttribute(NoNamespace.descr, (string)element.Attribute(NoNamespace.src))
+                new XAttribute(NoNamespace.descr, (string)element.Attribute(NoNamespace.alt) ?? $"Picture {pictureId}")
             );
         }
 
@@ -2736,7 +2736,7 @@ namespace Clippit.Html
                                 Pic.cNvPr,
                                 new XAttribute(NoNamespace.id, pictureId),
                                 new XAttribute(NoNamespace.name, pictureDescription),
-                                new XAttribute(NoNamespace.descr, (string)element.Attribute(NoNamespace.src))
+                                new XAttribute(NoNamespace.descr, (string)element.Attribute(NoNamespace.alt) ?? $"Picture {pictureId}")
                             ),
                             new XElement(
                                 Pic.cNvPicPr,
