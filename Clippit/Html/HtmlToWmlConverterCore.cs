@@ -1063,14 +1063,20 @@ namespace Clippit.Html
 
                 if (element.Name == XhtmlNoNamespace.span)
                 {
+                    // Recursively transform inner nodes of <span>
                     var spanReplacement = element
                         .Nodes()
                         .Select(n => Transform(n, settings, wDoc, nextExpected, preserveWhiteSpace));
+
+                    // Wrap them in a dummy element for easier access
                     var dummyElement = new XElement("dummy", spanReplacement);
                     var firstChild = dummyElement.Elements().FirstOrDefault();
                     XElement run = null;
+
+                    // If the span contains a <w:r> as first element, we will try to annotate it
                     if (firstChild != null && firstChild.Name == W.r)
                         run = firstChild;
+
                     if (run != null)
                     {
                         var computedProperties = element.Annotation<Dictionary<string, CssExpression>>();
@@ -1079,36 +1085,42 @@ namespace Clippit.Html
                             string width = computedProperties["width"];
                             if (width != "auto")
                                 run.Add(new XAttribute(PtOpenXml.HtmlToWmlCssWidth, width));
-                            var rFontsLocal = run.Element(W.rFonts);
-                            XElement rFontsGlobal = null;
-                            var styleDefPart = wDoc.MainDocumentPart.StyleDefinitionsPart;
-                            if (styleDefPart != null)
-                            {
-                                rFontsGlobal = styleDefPart
-                                    .GetXDocument()
-                                    .Root.Elements(W.docDefaults)
-                                    .Elements(W.rPrDefault)
-                                    .Elements(W.rPr)
-                                    .Elements(W.rFonts)
-                                    .FirstOrDefault();
-                            }
-                            var rFontsNew = FontMerge(rFontsLocal, rFontsGlobal);
+
                             var rPr = run.Element(W.rPr);
                             if (rPr != null)
                             {
                                 var rFontsExisting = rPr.Element(W.rFonts);
+
+                                // Only load rFonts from docDefaults if necessary
+                                XElement rFontsGlobal = null;
                                 if (rFontsExisting == null)
-                                    rPr.AddFirst(rFontsGlobal);
-                                else
-                                    rFontsExisting.ReplaceWith(rFontsGlobal);
+                                {
+                                    var styleDefPart = wDoc.MainDocumentPart.StyleDefinitionsPart;
+                                    if (styleDefPart != null)
+                                    {
+                                        rFontsGlobal = styleDefPart
+                                            .GetXDocument()
+                                            .Root.Elements(W.docDefaults)
+                                            .Elements(W.rPrDefault)
+                                            .Elements(W.rPr)
+                                            .Elements(W.rFonts)
+                                            .FirstOrDefault();
+                                    }
+
+                                    if (rFontsGlobal != null)
+                                        rPr.AddFirst(rFontsGlobal);
+                                }
+
+                                // Do NOT replace local rFonts if they exist — preserve manually set fonts like Symbol
                             }
                         }
                         return dummyElement.Elements();
                     }
 
+                    // If span did not contain a run, return transformed children directly
                     return spanReplacement;
                 }
-
+                
                 if (element.Name == XhtmlNoNamespace.strong)
                     return element.Nodes().Select(n => Transform(n, settings, wDoc, nextExpected, preserveWhiteSpace));
 
